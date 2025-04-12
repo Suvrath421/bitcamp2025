@@ -83,7 +83,12 @@ function showDashboardView() {
 }
 
 async function generateAISuggestion() {
-  const prompt = `Based on the following data, assign a cybersecurity safety score from 0 to 100 (where 100 is completely safe and 0 is highly unsafe). Provide your score on one line, and give a one- to two-sentence explanation on a separate line.
+  try {
+    // Get the current active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const url = new URL(tab.url).hostname; // Get just the domain
+
+    const prompt = `Based on the following data, assign a cybersecurity safety score from 0 to 100 (where 100 is completely safe and 0 is highly unsafe). Provide your score on one line, and give a one- to two-sentence explanation on a separate line.
 
 System Resource Anomalies:
 	◦	CPU: ${cpu_anom}
@@ -98,12 +103,10 @@ Provide output in this format:
 [0–100]
 Explanation: [One to two concise sentences]`;
 
-  try {
     const response = await chat(prompt);
-    const match = response.match(/(High|Medium|Low)[\s\S]*?(?=<\/p>|$)/i);
-    const scoreText = match ? match[1] : "Low";
-    const explanation = match ? match[0] : "No explanation provided.";
-    const numericScore = mapScoreToValue(scoreText);
+    const match = response.match(/\b(\d{1,3})\b[\s\S]*?(Explanation:\s.+)/i);
+    const numericScore = match ? parseInt(match[1]) : 0;
+    const explanation = match ? match[2] : "Explanation: No explanation provided.";
 
     const resultEl = document.getElementById("aiSuggestionResult");
     resultEl.innerHTML = generateGaugeHTML(numericScore, explanation);
@@ -114,6 +117,7 @@ Explanation: [One to two concise sentences]`;
     document.getElementById("aiSuggestionResult").innerHTML = "<p>Error: Unable to fetch recommendation.</p>";
   }
 }
+
 
 document.getElementById("toScoreViewBtn").addEventListener("click", () => {
   showScoreView();
