@@ -6,33 +6,49 @@
 function analyzeJson(jsonData, type) {
     switch (type) {
         case "analyze":
-            if (jsonData.suspicion_level) {
-                console.log(`Suspicion Level: ${jsonData.suspicion_level}`);
-            } else {
-                console.warn("Suspicion level not found in the analysis data.");
+            try {
+                const url = jsonData.file_url || 'N/A';
+                const suspicionLevel = jsonData.suspicion_level || 'N/A';
+                const suspicionScore = jsonData.suspicion_score ?? 'N/A'; // handles 0 properly
+            
+                return {
+                  url,
+                  suspicionLevel,
+                  suspicionScore
+                };
+            } catch (error) {
+                console.error("Failed to extract info:", error);
+                return null;
             }
-            break;
-
         case "ztest":
-            const metrics = ["cpu", "memory", "bytes_sent", "bytes_recv", "load"];
+            const matrix = [];
+
             metrics.forEach((metric) => {
                 if (jsonData[metric]) {
+                    const values = [];
+                    const isOutliers = [];
+                    const zScores = [];
+
                     jsonData[metric].forEach((entry) => {
-                        console.log(
-                            `${metric.toUpperCase()} - Value: ${entry.value}, Is Outlier: ${entry.is_outlier}, Z-Score: ${entry.z_score}`
-                        );
+                        values.push(entry.value);
+                        isOutliers.push(entry.is_outlier);
+                        zScores.push(entry.z_score);
                     });
+
+                    matrix.push([values, isOutliers, zScores]);
                 } else {
                     console.warn(`Metric ${metric} not found in the z-test data.`);
+                    matrix.push([[], [], []]); // still push empty row to preserve structure
                 }
             });
-            break;
+
+            return matrix;
 
         case "scan":
             if (jsonData.output && jsonData.output.includes("No malicious patterns were detected")) {
-                console.log("Scan Result: No malicious patterns were detected.");
+                return "Scan Result: No malicious patterns were detected.";
             } else {
-                console.warn("Scan Result: Malicious patterns may have been detected or output is missing.");
+                return "Scan Result: Malicious patterns may have been detected or output is missing.";
             }
             break;
 
