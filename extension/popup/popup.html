@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <title>Cyber Sentinel</title>
@@ -29,7 +28,6 @@
     }
   </style>
 </head>
-
 <body>
   <header>
     <h1>Cyber Sentinel</h1>
@@ -50,56 +48,70 @@
         </div>
       </section>
 
-      <section>
-        <h2>Performance Stats</h2>
-        <div class="stats-grid">
-          <div class="stats-box">
-            <span>CPU Usage</span>
-            <span id="cpuUsage">35%</span>
-          </div>
-          <div class="stats-box">
-            <span>GPU Usage</span>
-            <span id="gpuUsage">N/A</span>
-          </div>
-          <div class="stats-box">
-            <span>RAM Usage</span>
-            <span id="ramUsage">2.5GB</span>
-          </div>
-          <div class="stats-box">
-            <span>Chrome Perf</span>
-            <span id="chromePerf">0 ms</span>
-          </div>
-          <div class="stats-box" style="grid-column: span 2;">
-            <span>Network Activity</span>
-            <span id="networkActivity">0 KB/s</span>
-          </div>
+    <!-- Performance Stats Panel -->
+    <section>
+      <h2>Performance Stats</h2>
+      <div class="stats-grid">
+        <div class="stats-box">
+          <span>CPU Usage</span>
+          <span id="cpuUsage">Loading...</span>
         </div>
-      </section>
+        <div class="stats-box">
+          <span>RAM Usage</span>
+          <span id="ramUsage">Loading...</span>
+        </div>
+        <div class="stats-box" style="grid-column: span 2;">
+          <span>Network Activity</span>
+          <span id="initialNetworkActivity">Loading...</span>
+        </div>
+      </div>
+    </section>
 
-      <section>
-        <h2>Anomalous Data Metrics</h2>
+    <!-- Delta Metrics Panel -->
+    <section>
+      <h2>Delta Metrics</h2>
+      <div class="stats-grid">
+        <div class="stats-box">
+          <span>CPU Delta</span>
+          <span id="cpuDelta">--%</span>
+        </div>
+        <div class="stats-box">
+          <span>Memory Delta</span>
+          <span id="ramDelta">-- MB</span>
+        </div>
+        <div class="stats-box" style="grid-column: span 2;">
+          <span>Network Bytes Delta (Sent / Received)</span>
+          <span id="changeInNetworkActivity">-- / --</span>
+        </div>
+        <div class="stats-box" style="grid-column: span 2;">
+          <span>Load Time</span>
+          <span id="loadTime">-- ms</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stability Metrics Panel -->
+    <section>
+        <h2>Stability Metrics</h2>
         <div class="stats-grid">
           <div class="stats-box">
-            <span>CPU Activity</span>
-            <span id="cpuDelta">--%</span>
+            <span>CPU</span>
+            <span id="cpuStatus">Loading...</span>
           </div>
           <div class="stats-box">
-            <span>Memory Activity</span>
-            <span id="ramDelta">-- MB</span>
+            <span>Memory</span>
+            <span id="memoryStatus">Loading...</span>
           </div>
-          <div class="stats-box" style="grid-column: span 2;">
-            <span>Network Activity</span>
-            <span id="networkDelta">-- / --</span>
-          </div>
-          <div class="stats-box" style="grid-column: span 2;">
-            <span>Load Time</span>
-            <span id="loadTime">-- ms</span>
+          <div class="stats-box">
+            <span>Network</span>
+            <span id="networkStatus">Loading...</span>
           </div>
         </div>
       </section>
+      
 
       <section class="footer">
-        <p>Data last updated: <span id="lastUpdate">Just now</span></p>
+        <p>Data last updated: <span id="lastUpdate">Loading...</span></p>
         <button id="toScoreViewBtn" class="ai-suggestion-btn"
           style="margin-top: 10px; padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">
           Get Safety Score
@@ -116,5 +128,4 @@
 
   <script type="module" src="popup.js"></script>
 </body>
-
 </html>

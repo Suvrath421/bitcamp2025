@@ -14,12 +14,14 @@
     "default_popup": "popup/popup.html"
   },
   "permissions": [
+    "scripting",
     "tabs",
     "system.cpu",
     "system.memory",
     "system.display",
     "debugger",
-    "contextMenus"
+    "contextMenus",
+    "http://localhost:3000/"
   ],
   "host_permissions": [
     "*://*/*"

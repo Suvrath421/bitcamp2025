@@ -1,130 +1,451 @@
-// popup.js
-import { chat } from '../gemini.js';
+const DEBUGGER_PROTOCOL_VERSION = "1.3";
+let activeTabId = null;
+let simulatedMalicious = false; // simulate malicious state once per session
 
-let aiScoreGenerated = false;
+// Smoothing variables (for all metrics)
+let smoothedCpu = null;
+let smoothedRam = null;
+const alpha = 0.3; // smoothing factor
 
-function mapScoreToValue(scoreText) {
-  if (scoreText.includes("High")) return 90;
-  if (scoreText.includes("Medium")) return 60;
-  return 30;
+// Variables for improved CPU calculation.
+let prevTaskDuration = null;      // Previous TaskDuration metric (seconds)
+let prevCpuTimestamp = null;        // Timestamp of previous measurement (milliseconds)
+// New global variables for network delta simulation
+// Global variables for actual network metrics:
+
+// Global variables for network metrics - simplified
+let networkTotalBytes = 0;         // Cumulative total bytes (sent + received)
+let prevNetworkDeltaBytes = 0;     // Previous delta measurement for change calculation
+let initialNetworkCaptured = false; // Flag to track initial load completion
+
+
+// Variables for CPU and RAM delta calculation.
+let prevSmoothedCpu = null;
+let prevSmoothedRam = null;
+
+/**
+ * Utility to smooth values using exponential smoothing.
+ * @param {number} newValue - The new measurement.
+ * @param {number|null} prevSmooth - The previous smoothed measurement.
+ * @returns {number} - The new smoothed value.
+ */
+function smooth(newValue, prevSmooth) {
+  return prevSmooth === null ? newValue : alpha * newValue + (1 - alpha) * prevSmooth;
 }
 
-function getScoreColor(value) {
-  if (value >= 80) return '#00e676'; // green
-  if (value >= 50) return '#ffeb3b'; // yellow
-  return '#ff1744'; // red
+/**
+ * Assess resource intensity based on provided (smoothed) metrics.
+ * @param {number} cpuUsage - CPU usage percentage.
+ * @param {number} ramUsage - JS Heap usage in MB.
+ * @param {number} chromePerf - Performance metric in ms.
+ * @returns {string} "High", "Medium", or "Low".
+ */
+function assessResourceIntensity(cpuUsage, ramUsage, chromePerf) {
+  let score = 0;
+  // Adjust thresholds as needed. For demonstration:
+  if (cpuUsage > 40) score++;       // Flag if CPU exceeds 40%
+  if (ramUsage > 30) score++;       // Flag if RAM exceeds 30 MB
+  if (chromePerf > 100) score++;    // Flag if chromePerf exceeds 100 ms
+  
+  console.log(`Smoothed Metrics -> CPU: ${cpuUsage.toFixed(1)}%, RAM: ${ramUsage.toFixed(1)} MB, Score: ${score}`);
+  
+  if (score >= 2) return "High";
+  if (score === 1) return "Medium";
+  return "Low";
 }
 
-function generateGaugeHTML(scoreValue, explanation) {
-  const color = getScoreColor(scoreValue);
-  return `
-    <style>
-      .circular-chart {
-        display: block;
-        margin: 0 auto;
-        max-width: 120px;
-        max-height: 120px;
-      }
-      .circle-bg {
-        fill: none;
-        stroke: #ddd;
-        stroke-width: 3.8;
-      }
-      .circle {
-        fill: none;
-        stroke-width: 4.5;
-        stroke-linecap: round;
-        stroke: ${color};
-        animation: progress 1s ease-out forwards;
-      }
-      @keyframes progress {
-        0% { stroke-dasharray: 0 100; }
-        100% { stroke-dasharray: ${scoreValue} 100; }
-      }
-      .score-text {
-        fill: #fff;
-        font-size: 10px;
-        font-weight: bold;
-      }
-    </style>
-    <div style="text-align: center;">
-      <svg viewBox="0 0 36 36" class="circular-chart">
-        <path class="circle-bg"
-              d="M18 2.0845
-                 a 15.9155 15.9155 0 0 1 0 31.831
-                 a 15.9155 15.9155 0 0 1 0 -31.831" />
-        <path class="circle"
-              stroke-dasharray="0, 100"
-              d="M18 2.0845
-                 a 15.9155 15.9155 0 0 1 0 31.831
-                 a 15.9155 15.9155 0 0 1 0 -31.831" />
-        <text x="18" y="20.35" text-anchor="middle" class="score-text">${scoreValue}</text>
-      </svg>
-      <p style="margin-top: 10px; font-size: 13px;">Risk Level: ${scoreValue >= 80 ? 'High' : scoreValue >= 50 ? 'Medium' : 'Low'}</p>
-      <div style="margin: 15px 10px; font-size: 13px; line-height: 1.4; color: #ccc;">${explanation}</div>
-      <button id="viewStatsBtn" style="margin-top: 10px; padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; font-size: 14px; cursor: pointer;">View Statistics</button>
-    </div>
-  `;
+/**
+ * Checks if a given URL belongs to a restricted domain.
+ */
+function isRestricted(url) {
+  return url.includes("docs.google.com") ||
+         url.startsWith("chrome://") ||
+         url.startsWith("chrome-extension://") ||
+         url.includes("gemini");
 }
 
-function showScoreView() {
-  document.getElementById("dashboardView").style.display = "none";
-  document.getElementById("scoreView").style.display = "block";
+/**
+ * Attach the debugger to the given tab.
+ */
+function attachDebugger(tabId, callback) {
+  chrome.debugger.attach({ tabId }, DEBUGGER_PROTOCOL_VERSION, () => {
+    if (chrome.runtime.lastError) {
+      const errorMsg = chrome.runtime.lastError.message;
+      if (errorMsg && errorMsg.includes("Another debugger is already attached")) {
+        console.warn("Debugger already attached to tab " + tabId + ". Proceeding.");
+        callback();
+        return;
+      }
+      console.error("Error attaching debugger:", errorMsg);
+      setTimeout(() => attachDebugger(tabId, callback), 2000);
+      return;
+    }
+    callback();
+  });
+}
 
-  if (!aiScoreGenerated) {
-    generateAISuggestion();
-    aiScoreGenerated = true;
+/**
+ * Enable the Performance domain for the debugger.
+ */
+function enablePerformance(tabId, callback) {
+  chrome.debugger.sendCommand({ tabId }, "Performance.enable", {}, () => {
+    if (chrome.runtime.lastError) {
+      console.error("Performance.enable error:", chrome.runtime.lastError.message);
+      return;
+    }
+    callback();
+  });
+}
+
+
+/**
+ * Enable the Network domain.
+ */
+function enableNetwork(tabId, callback) {
+    // Reset network metrics on enable
+    networkTotalBytes = 0;
+    prevNetworkDeltaBytes = 0;
+    initialNetworkCaptured = false;
+
+    chrome.debugger.sendCommand({ tabId }, "Network.enable", {}, () => {
+      if (chrome.runtime.lastError) {
+        console.error("Network.enable error:", chrome.runtime.lastError.message);
+        return;
+      }
+      
+      // Immediately capture load time to avoid timing issues
+      captureLoadTime(tabId);
+      
+      if (callback) callback();
+    });
+}
+
+function captureLoadTime(tabId) {
+    chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      func: () => {
+        return new Promise((resolve) => {
+          // If page has already loaded, get the timing immediately
+          if (document.readyState === 'complete') {
+            const navEntries = performance.getEntriesByType("navigation");
+            if (navEntries.length > 0) {
+              resolve(navEntries[0].loadEventEnd - navEntries[0].startTime);
+            } else {
+              // Fallback for older browsers
+              const timing = performance.timing;
+              resolve(timing.loadEventEnd - timing.navigationStart);
+            }
+          } else {
+            // Otherwise, wait for the load event
+            window.addEventListener('load', () => {
+              // Give a small delay to ensure metrics are complete
+              setTimeout(() => {
+                const navEntries = performance.getEntriesByType("navigation");
+                if (navEntries.length > 0) {
+                  resolve(navEntries[0].loadEventEnd - navEntries[0].startTime);
+                } else {
+                  // Fallback for older browsers
+                  const timing = performance.timing;
+                  resolve(timing.loadEventEnd - timing.navigationStart);
+                }
+              }, 100);
+            }, { once: true });
+          }
+        });
+      }
+    }, (results) => {
+      if (chrome.runtime.lastError) {
+        console.error("Error capturing load time:", chrome.runtime.lastError.message);
+        return;
+      }
+      
+      if (results && results[0] && results[0].result !== undefined) {
+        const loadTime = results[0].result;
+        // Update the load time display
+        document.getElementById("loadTime").textContent = loadTime + " ms";
+      }
+    });
   }
-}
 
-function showDashboardView() {
-  document.getElementById("scoreView").style.display = "none";
-  document.getElementById("dashboardView").style.display = "block";
-}
-
-async function generateAISuggestion() {
-  try {
-    // Get the current active tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const url = new URL(tab.url).hostname; // Get just the domain
-
-    const prompt = `Based on the following data, assign a cybersecurity safety score from 0 to 100 (where 100 is completely safe and 0 is highly unsafe). Provide your score on one line, and give a one- to two-sentence explanation on a separate line.
-
-System Resource Anomalies:
-	◦	CPU: ${cpu_anom}
-	◦	Memory Usage: ${mem_anom}
-	◦	Network Bytes Sent: ${sent_anom}
-	◦	Network Bytes Received: ${recv_anom}
-Malicious Code Scan Result:
-	◦	${flag}
-Domain Name:
-	◦	${url}
-Provide output in this format:
-[0–100]
-Explanation: [One to two concise sentences]`;
-
-    const response = await chat(prompt);
-    const match = response.match(/\b(\d{1,3})\b[\s\S]*?(Explanation:\s.+)/i);
-    const numericScore = match ? parseInt(match[1]) : 0;
-    const explanation = match ? match[2] : "Explanation: No explanation provided.";
-
-    const resultEl = document.getElementById("aiSuggestionResult");
-    resultEl.innerHTML = generateGaugeHTML(numericScore, explanation);
-
-    document.getElementById("viewStatsBtn").addEventListener("click", showDashboardView);
-  } catch (error) {
-    console.error("Error fetching Gemini response:", error);
-    document.getElementById("aiSuggestionResult").innerHTML = "<p>Error: Unable to fetch recommendation.</p>";
-  }
-}
-
-
-document.getElementById("toScoreViewBtn").addEventListener("click", () => {
-  showScoreView();
+chrome.debugger.onEvent.addListener(function (source, method, params) {
+    if (source.tabId !== activeTabId) return;
+  
+    if (method === "Network.dataReceived" || method === "Network.requestWillBeSent") {
+        let bytesAdded = 0;
+        
+        if (method === "Network.dataReceived") {
+            bytesAdded = params.dataLength;
+        } else if (params.request) {
+            // Estimate sent bytes for requests
+            let sentEstimate = JSON.stringify(params.request.headers).length;
+            if (params.request.postData) {
+                sentEstimate += params.request.postData.length;
+            }
+            bytesAdded = sentEstimate;
+        }
+        
+        // Add to cumulative total
+        networkTotalBytes += bytesAdded;
+        
+        // If this is first network activity, mark the initial load
+        if (!initialNetworkCaptured && networkTotalBytes > 0) {
+            document.getElementById("initialNetworkActivity").textContent = 
+                (networkTotalBytes / 1024).toFixed(1) + " KB";
+            initialNetworkCaptured = true;
+            prevNetworkDeltaBytes = networkTotalBytes; // Initialize previous total
+        }
+    }
 });
 
-document.getElementById("backToDashboardBtn")?.addEventListener("click", showDashboardView);
+  
+/**
+ * Retrieve performance metrics via the debugger, update UI, and apply smoothing.
+ */
+function updateMetrics(tabId) {
+  chrome.debugger.sendCommand({ tabId }, "Performance.getMetrics", {}, (result) => {
+    if (chrome.runtime.lastError || !result) {
+      console.error("getMetrics error:", chrome.runtime.lastError ? chrome.runtime.lastError.message : "No result");
+      // Try reinitializing debugger if an error occurs.
+      reinitializeDebugger(tabId);
+      return;
+    }
+    
+    const metrics = {};
+    for (const metric of result.metrics) {
+      metrics[metric.name] = metric.value;
+    }
+    
+    // Improved CPU Usage Calculation:
+    const currentTaskDuration = metrics["TaskDuration"] !== undefined ? metrics["TaskDuration"] : 0;
+    const currentTimestamp = Date.now(); // in milliseconds
+    let measuredCpu = 0;
+    if (prevTaskDuration !== null && prevCpuTimestamp !== null) {
+      // Calculate CPU usage as percentage of time the CPU was busy.
+      measuredCpu = ((currentTaskDuration - prevTaskDuration) / ((currentTimestamp - prevCpuTimestamp) / 1000)) * 100;
+      // Clamp negative values to 0.
+      if (measuredCpu < 0) measuredCpu = 0;
+    } else {
+      // On the very first measurement, we cannot calculate the delta.
+      measuredCpu = 0;
+    }
+    // Update the previous values for the next round.
+    prevTaskDuration = currentTaskDuration;
+    prevCpuTimestamp = currentTimestamp;
+    
+    // Apply smoothing.
+    smoothedCpu = smooth(measuredCpu, smoothedCpu);
+    document.getElementById("cpuUsage").textContent =
+      (smoothedCpu ? smoothedCpu.toFixed(1) : "N/A") + (smoothedCpu ? "%" : "");
+    
+    // RAM Usage: Use "JSHeapUsedSize" (convert from bytes to MB).
+    let ramUsage = metrics["JSHeapUsedSize"] !== undefined ? (metrics["JSHeapUsedSize"] / (1024 * 1024)) : 0;
+    smoothedRam = smooth(ramUsage, smoothedRam);
+    document.getElementById("ramUsage").textContent =
+      (smoothedRam ? smoothedRam.toFixed(1) : "N/A") + (smoothedRam ? " MB" : "");
+    
+    // Calculate change in network activity (delta)
+    const deltaNetworkBytes = networkTotalBytes - prevNetworkDeltaBytes;
+    document.getElementById("changeInNetworkActivity").textContent =
+      (deltaNetworkBytes / 1024).toFixed(1) + " KB/s";
+    
+    // Update cumulative network activity
+    document.getElementById("initialNetworkActivity").textContent =
+      (networkTotalBytes / 1024).toFixed(1) + " KB";
+    
+    // Update previous total bytes for the next calculation
+    prevNetworkDeltaBytes = networkTotalBytes;
+
+
+     // Compute CPU and Memory Delta values.
+     let cpuDelta = (prevSmoothedCpu !== null) ? (smoothedCpu - prevSmoothedCpu) : 0;
+     let ramDelta = (prevSmoothedRam !== null) ? (smoothedRam - prevSmoothedRam) : 0;
+     document.getElementById("cpuDelta").textContent = cpuDelta.toFixed(1) + "%";
+     document.getElementById("ramDelta").textContent = ramDelta.toFixed(1) + " MB";
+     prevSmoothedCpu = smoothedCpu;
+     prevSmoothedRam = smoothedRam;
+
+
+    // Assess resource intensity based on the smoothed metrics.
+    let intensity = assessResourceIntensity(smoothedCpu, smoothedRam);
+    const resourceIndicatorEl = document.getElementById("resourceIndicator");
+    if (intensity === "High") {
+      resourceIndicatorEl.textContent = "High";
+      resourceIndicatorEl.className = "px-2 py-1 rounded text-xs font-semibold bg-red-600";
+    } else if (intensity === "Medium") {
+      resourceIndicatorEl.textContent = "Medium";
+      resourceIndicatorEl.className = "px-2 py-1 rounded text-xs font-semibold bg-yellow-500 text-gray-900";
+    } else {
+      resourceIndicatorEl.textContent = "Low";
+      resourceIndicatorEl.className = "px-2 py-1 rounded text-xs font-semibold bg-green-600";
+    }
+    
+    // Update the malicious indicator based on the simulated state.
+    const maliciousIndicatorEl = document.getElementById("maliciousIndicator");
+    if (simulatedMalicious) {
+      maliciousIndicatorEl.textContent = "Yes";
+      maliciousIndicatorEl.className = "px-2 py-1 rounded text-xs font-semibold bg-red-600";
+    } else {
+      maliciousIndicatorEl.textContent = "No";
+      maliciousIndicatorEl.className = "px-2 py-1 rounded text-xs font-semibold bg-green-600";
+    }
+    
+    // Update the last updated timestamp.
+    document.getElementById("lastUpdate").textContent = new Date().toLocaleTimeString();
+  });
+}
+
+/**
+ * Attempts to reinitialize the debugger by detaching and then reattaching.
+ */
+function reinitializeDebugger(tabId) {
+    chrome.debugger.detach({ tabId }, () => {
+      console.warn("Reattaching debugger to tab " + tabId + "...");
+      attachDebugger(tabId, () => {
+        enablePerformance(tabId, () => {
+          enableNetwork(tabId, () => {
+            setInterval(() => updateMetrics(activeTabId), 1000);
+            updateMetrics(activeTabId);
+          });
+        });
+      });
+    });
+  }
+
+/**
+ * Initialize the extension: query the active tab, check restrictions, simulate malicious state,
+ * attach the debugger, and start periodic metric updates.
+ */
+function init() {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (!tabs || tabs.length === 0) {
+      console.error("No active tab found");
+      return;
+    }
+    activeTabId = tabs[0].id;
+    const tabUrl = tabs[0].url || "";
+    
+    if (isRestricted(tabUrl)) {
+        console.warn("Restricted page. Metrics not available.");
+        document.getElementById("cpuUsage").textContent = "N/A";
+        document.getElementById("ramUsage").textContent = "N/A";
+        document.getElementById("initialNetworkActivity").textContent = "N/A";
+        document.getElementById("resourceIndicator").textContent = "N/A";
+        document.getElementById("maliciousIndicator").textContent = "N/A";
+        document.getElementById("lastUpdate").textContent = "Restricted Page";
+        document.getElementById("changeInNetworkDelta").textContent = "-- / --";
+        document.getElementById("cpuDelta").textContent = "--%";
+        document.getElementById("ramDelta").textContent = "-- MB";
+        document.getElementById("loadTime").textContent = "N/A";
+        return;
+    }
+    
+    // Simulate malicious state once (30% chance).
+    simulatedMalicious = Math.random() < 0.3;
+    
+    attachDebugger(activeTabId, () => {
+      enablePerformance(activeTabId, () => {
+        enableNetwork(activeTabId, () => {
+            // Periodically update the metrics.
+            setInterval(() => updateMetrics(activeTabId), 1000);
+            updateMetrics(activeTabId);
+
+             // Start writing metrics to CSV every 5 seconds.
+            setInterval(() => {
+                writeMetricsToCSV();
+            }, 5000);
+
+          });
+
+      });
+    });
+        
+  });
+}
+
+/**
+ * Cleanup: detach the debugger when the popup is closed.
+ */
+function cleanup() {
+  if (activeTabId !== null) {
+    chrome.debugger.detach({ tabId: activeTabId });
+  }
+}
+
+document.addEventListener("DOMContentLoaded", init);
+window.addEventListener("unload", cleanup);
 
 document.addEventListener("DOMContentLoaded", () => {
-  showScoreView();
-});
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (!tabs || tabs.length === 0) {
+        console.error("No active tab found");
+        return;
+      }
+      const activeTabId = tabs[0].id;
+      
+      // Function to request and update the UI with metrics for the active tab.
+      function updateUI() {
+        chrome.runtime.sendMessage({ type: "getTabMetrics", tabId: activeTabId }, (metrics) => {
+          if (!metrics || Object.keys(metrics).length === 0) return;
+          document.getElementById("cpuUsage").textContent = metrics.cpu ? metrics.cpu.toFixed(1) + "%" : "N/A";
+          document.getElementById("ramUsage").textContent = metrics.ram ? metrics.ram.toFixed(1) + " MB" : "N/A";
+          document.getElementById("cpuDelta").textContent = metrics.deltaCpu ? metrics.deltaCpu.toFixed(1) + "%" : "N/A";
+          document.getElementById("ramDelta").textContent = metrics.deltaRam ? metrics.deltaRam.toFixed(1) + " MB" : "N/A";
+          document.getElementById("networkDelta").textContent = metrics.deltaNetworkSent + " / " + metrics.deltaNetworkReceived;
+          document.getElementById("loadTime").textContent = metrics.loadTime + " ms";
+          document.getElementById("lastUpdate").textContent = metrics.lastUpdate;
+        });
+      }
+      // Update the UI immediately, and then every second.
+      updateUI();
+      setInterval(updateUI, 1000);
+    });
+  });
+
+
+  async function writeMetricsToCSV(metrics) {
+    const cpuDelta = (smoothedCpu !== null ? smoothedCpu : 0).toFixed(2);
+    const memoryDelta = (smoothedRam !== null ? smoothedRam : 0).toFixed(2);
+    const network = networkTotalBytes - prevNetworkDeltaBytes;
+
+    const csvRow = `${cpuDelta},${memoryDelta},${network}\n`;
+  
+    fetch("http://localhost:3000/write-csv", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: csvRow,
+    });
+  }
+      
+  
+  function updateZScoreStatus() {
+    fetch("http://localhost:3000/zscore")
+      .then(res => res.json())
+      .then(data => {
+        // Get each designated element separately.
+        const cpuEl = document.getElementById("cpuStatus");
+        const memoryEl = document.getElementById("memoryStatus");
+        const networkEl = document.getElementById("networkStatus");
+  
+        // Update the text content for each metric.
+        cpuEl.textContent = data.cpu;
+        memoryEl.textContent = data.memory;
+        networkEl.textContent = data.network;
+  
+        // Check each metric's stability status and update the class accordingly.
+        // Instead of applying a class on the container, modify the text color.
+        cpuEl.style.color = data.cpu === "Unstable" ? "red" : "#68d391";;
+        memoryEl.style.color = data.memory === "Unstable" ? "red" : "#68d391";;
+        networkEl.style.color = data.network === "Unstable" ? "red" : "#68d391";;
+      })
+      .catch(err => {
+        console.error("Error fetching stability status:", err);
+      });
+  }
+
+  
+  // ... [Rest of the existing popup.js code remains unchanged, including init, updateMetrics, and writeMetricsToCSV] ...
+  
+  setInterval(updateZScoreStatus, 5000);
+      
+  
+  
