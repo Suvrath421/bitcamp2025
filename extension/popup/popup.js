@@ -177,6 +177,35 @@ function updateMetrics(tabId) {
 }
 
 /**
+ * Generate AI suggestion based on current metrics.
+ */
+function generateAISuggestion() {
+  const cpuUsage = smoothedCpu || 0;
+  const ramUsage = smoothedRam || 0;
+  const chromePerf = smoothedChromePerf || 0;
+
+  // Calculate a score (1-10) where 1 is dangerous and 10 is safe.
+  let score = Math.min(10, Math.max(1, 10 - Math.round((cpuUsage / 10) + (ramUsage / 10) + (chromePerf / 15))));
+
+  // Generate a recommendation based on the score.
+  let recommendation = "";
+  if (score <= 3) {
+    recommendation = "This site appears dangerous. High resource usage and potential risks detected.";
+  } else if (score <= 7) {
+    recommendation = "This site may be moderately safe. Some resource usage is detected, proceed with caution.";
+  } else {
+    recommendation = "This site is safe to use. Minimal resource usage and no risks detected.";
+  }
+
+  // Display the result in the UI.
+  const resultEl = document.getElementById("aiSuggestionResult");
+  resultEl.textContent = `Safety Score: ${score}/10. ${recommendation}`;
+}
+
+// Attach event listener to the AI Suggestion button.
+document.getElementById("aiSuggestionButton").addEventListener("click", generateAISuggestion);
+
+/**
  * Attempts to reinitialize the debugger by detaching and then reattaching.
  */
 function reinitializeDebugger(tabId) {
