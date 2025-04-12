@@ -1,7 +1,3 @@
-//This file will be used to analze the json files of our main shell scipt
-
-// We will have 3 main things here with our json files when we run stuff like our z=test-scipt
-
 /**
  * Analyze JSON data based on its type.
  * @param {Object} jsonData - The JSON data to analyze.
@@ -10,7 +6,6 @@
 function analyzeJson(jsonData, type) {
     switch (type) {
         case "analyze":
-            // Look for the suspicion_level
             if (jsonData.suspicion_level) {
                 console.log(`Suspicion Level: ${jsonData.suspicion_level}`);
             } else {
@@ -19,7 +14,6 @@ function analyzeJson(jsonData, type) {
             break;
 
         case "ztest":
-            // Check for outliers in the metrics
             const metrics = ["cpu", "memory", "bytes_sent", "bytes_recv", "load"];
             metrics.forEach((metric) => {
                 if (jsonData[metric]) {
@@ -35,7 +29,6 @@ function analyzeJson(jsonData, type) {
             break;
 
         case "scan":
-            // Look for "no malicious patterns were detected" in the output
             if (jsonData.output && jsonData.output.includes("No malicious patterns were detected")) {
                 console.log("Scan Result: No malicious patterns were detected.");
             } else {
@@ -48,52 +41,32 @@ function analyzeJson(jsonData, type) {
     }
 }
 
-// Example usage
-const analyzeData = {
-    suspicion_level: "Low",
-    // ... other fields
+/**
+ * Map each data type to its respective URL.
+ */
+const dataSources = {
+    analyze: "https://example.com/analyze",
+    ztest: "https://example.com/ztest",
+    scan: "https://example.com/scan"
 };
-
-const ztestData = {
-    cpu: [{ is_outlier: false, value: 22.5, z_score: 0.0735 }],
-    memory: [{ is_outlier: false, value: 1.9, z_score: 0.0763 }],
-    // ... other metrics
-};
-
-const scanData = {
-    output: "No malicious patterns were detected.",
-    // ... other fields
-};
-
-analyzeJson(analyzeData, "analyze");
-analyzeJson(ztestData, "ztest");
-analyzeJson(scanData, "scan");
 
 /**
- * Fetch and analyze JSON data for all three types: analyze, ztest, and scan.
+ * Fetch and analyze all defined data sources.
  */
 async function fetchAndAnalyze() {
-    try {
-        // Fetch analyze data
-        const analyzeResponse = await fetch("https://example.com/analyze");
-        const analyzeData = await analyzeResponse.json();
-        analyzeJson(analyzeData, "analyze");
-
-        // Fetch ztest data
-        const ztestResponse = await fetch("https://example.com/ztest");
-        const ztestData = await ztestResponse.json();
-        analyzeJson(ztestData, "ztest");
-
-        // Fetch scan data
-        const scanResponse = await fetch("https://example.com/scan");
-        const scanData = await scanResponse.json();
-        analyzeJson(scanData, "scan");
-    } catch (error) {
-        console.error("Error fetching or analyzing data:", error);
+    for (const [type, url] of Object.entries(dataSources)) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch ${type} data: ${response.statusText}`);
+            }
+            const data = await response.json();
+            analyzeJson(data, type);
+        } catch (error) {
+            console.error(`Error handling ${type} data:`, error);
+        }
     }
 }
 
-// Call the function to fetch and analyze all data
+// Start the process
 fetchAndAnalyze();
-
-// Here are some notes for our things we will be running

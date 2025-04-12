@@ -83,11 +83,20 @@ function showDashboardView() {
 }
 
 async function generateAISuggestion() {
-  const prompt = `Based on the following system metrics:
-  - CPU Usage: 35%
-  - RAM Usage: 2.5 MB
-  - Chrome Performance: 75 ms
-  Provide a cybersecurity safety score (High, Medium, Low) and a two-sentence explanation of the system's safety in terms of potential cyber threats. Output the response as HTML.`;
+  const prompt = `Based on the following data, assign a cybersecurity safety score from 0 to 100 (where 100 is completely safe and 0 is highly unsafe). Provide your score on one line, and give a one- to two-sentence explanation on a separate line.
+
+System Resource Anomalies:
+	◦	CPU: {cpu_anom}
+	◦	Memory Usage: {mem_anom}
+	◦	Network Bytes Sent: {sent_anom}
+	◦	Network Bytes Received: {recv_anom}
+Malicious Code Scan Result:
+	◦	{flag}
+Domain Name:
+	◦	{url}
+Provide output in this format:
+[0–100]
+Explanation: [One to two concise sentences]`;
 
   try {
     const response = await chat(prompt);
