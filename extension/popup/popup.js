@@ -86,14 +86,14 @@ async function generateAISuggestion() {
   const prompt = `Based on the following data, assign a cybersecurity safety score from 0 to 100 (where 100 is completely safe and 0 is highly unsafe). Provide your score on one line, and give a one- to two-sentence explanation on a separate line.
 
 System Resource Anomalies:
-	◦	CPU: {cpu_anom}
-	◦	Memory Usage: {mem_anom}
-	◦	Network Bytes Sent: {sent_anom}
-	◦	Network Bytes Received: {recv_anom}
+	◦	CPU: ${cpu_anom}
+	◦	Memory Usage: ${mem_anom}
+	◦	Network Bytes Sent: ${sent_anom}
+	◦	Network Bytes Received: ${recv_anom}
 Malicious Code Scan Result:
-	◦	{flag}
+	◦	${flag}
 Domain Name:
-	◦	{url}
+	◦	${url}
 Provide output in this format:
 [0–100]
 Explanation: [One to two concise sentences]`;
