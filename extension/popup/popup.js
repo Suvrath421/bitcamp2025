@@ -177,29 +177,33 @@ function updateMetrics(tabId) {
 }
 
 /**
- * Generate AI suggestion based on current metrics.
+ * Generate AI suggestion based on current metrics using Gemini.
  */
-function generateAISuggestion() {
+async function generateAISuggestion() {
   const cpuUsage = smoothedCpu || 0;
   const ramUsage = smoothedRam || 0;
   const chromePerf = smoothedChromePerf || 0;
 
-  // Calculate a score (1-10) where 1 is dangerous and 10 is safe.
-  let score = Math.min(10, Math.max(1, 10 - Math.round((cpuUsage / 10) + (ramUsage / 10) + (chromePerf / 15))));
+  // Create a concise prompt for Gemini to provide a cybersecurity safety score.
+  const prompt = `Based on the following system metrics:
+  - CPU Usage: ${cpuUsage.toFixed(1)}%
+  - RAM Usage: ${ramUsage.toFixed(1)} MB
+  - Chrome Performance: ${chromePerf.toFixed(1)} ms
+  Provide a cybersecurity safety score (High, Medium, Low) and a two-sentence explanation of the system's safety in terms of potential cyber threats. Output the response as HTML.`;
 
-  // Generate a recommendation based on the score.
-  let recommendation = "";
-  if (score <= 3) {
-    recommendation = "This site appears dangerous. High resource usage and potential risks detected.";
-  } else if (score <= 7) {
-    recommendation = "This site may be moderately safe. Some resource usage is detected, proceed with caution.";
-  } else {
-    recommendation = "This site is safe to use. Minimal resource usage and no risks detected.";
+  try {
+    const response = await chat(prompt);
+
+    // Display the result in the UI using innerHTML to render the HTML content properly.
+    const resultEl = document.getElementById("aiSuggestionResult");
+    resultEl.innerHTML = response; // Directly insert the HTML response
+  } catch (error) {
+    console.error("Error fetching Gemini response:", error);
+
+    // Display an error message in the UI.
+    const resultEl = document.getElementById("aiSuggestionResult");
+    resultEl.innerHTML = "<p>Error: Unable to fetch recommendation.</p>";
   }
-
-  // Display the result in the UI.
-  const resultEl = document.getElementById("aiSuggestionResult");
-  resultEl.textContent = `Safety Score: ${score}/10. ${recommendation}`;
 }
 
 // Attach event listener to the AI Suggestion button.
@@ -295,4 +299,3 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(updateUI, 1000);
   });
 });
-

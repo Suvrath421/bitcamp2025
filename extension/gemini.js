@@ -2,7 +2,7 @@
 
 const GEMINI_API_KEY = 'AIzaSyDaiSGpre-A9FMYhQFky2DXQabFPw0Z3-g';
 
-const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
 
 /**
  * Sends a prompt to Gemini API and returns the text response
