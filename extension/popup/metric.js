@@ -452,9 +452,9 @@ function runScan() {
 
         // Get the malicious code indicator element.
         const indicatorEl = document.getElementById("maliciousIndicator");
-
+        console.log(result);
         // If scan output indicates no malicious patterns or there's a 403 error, mark it as "No".
-        if (result.includes("No malicious patterns were detected") || result.includes("403: Forbidden")) {
+        if (result.includes("No malicious patterns were detected") || result.includes("403: Forbidden") || " ") {
           indicatorEl.textContent = "No";
           indicatorEl.style.color = "green";
 

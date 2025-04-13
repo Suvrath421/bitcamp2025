@@ -4,9 +4,9 @@
   "version": "1.0",
   "description": "A minimal example of a chrome extension using manifest v3",
   "icons": {
-    "16": "logo/logo-16.png",
-    "48": "logo/logo-48.png",
-    "128": "logo/logo-128.png"
+    "16": "logo/cyber-security_16.png",
+    "48": "logo/cyber-security_48.png",
+    "128": "logo/cyber-security_128.png"
   },
   "options_page": "settings/settings.html",
   "action": {

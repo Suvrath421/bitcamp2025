@@ -6,6 +6,56 @@ const { exec } = require("child_process");
 const app = express();
 app.use(express.text());
 
+const mongoose = require("mongoose");
+const {MongoClient, ServerApiVersion, ObjectId} = require('mongodb');
+
+const uri = "mongodb+srv://mitjaipp:Soccer12321@cluster0.gzuyvsh.mongodb.net/data?retryWrites=true&w=majority&appName=Cluster0";
+
+mongoose.connect(uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  tls:true,
+  tlsAllowInvalidCertificates:false,
+  tlsAllowInvalidHostnames:false,
+})
+  .then(() => {
+    console.log("MongoDB connection established");
+    const port = 3000; // Define a valid port number
+    app.listen(port, () => {
+      
+      console.log(`Server running on port ${port}`);
+    });
+  })
+  .catch((error) => {
+    console.error("MongoDB connection error:", error);
+  process.exit(1);
+  });
+
+// Define the Job schema and model using Mongoose.
+const jobSchema = new mongoose.Schema({
+  type: { type: String, required: true },
+  data: { type: mongoose.Schema.Types.Mixed, required: true },
+  status: { type: String, default: "pending" }, // "pending" or "processed"
+  createdAt: { type: Date, default: Date.now },
+  processedAt: { type: Date },
+  result: { type: mongoose.Schema.Types.Mixed }
+});
+const Job = mongoose.model("Job", jobSchema);
+// Helper function to insert a request into the "requests" collection.
+// We use the active Mongoose connection to get the underlying native driver.
+async function storeRequest(endpointType, data) {
+  const newTask = {
+    type: endpointType,  
+    data: data,          
+    status: "pending",   
+    createdAt: new Date()
+  };
+  const result = await mongoose.connection.db.collection('tasks').insertOne(newTask);
+  return result.insertedId;
+}
+
+ 
+
 let latestResult = {};
 
 // Configure the URL and rule file. (Adjust these to your needs.)
@@ -19,6 +69,16 @@ app.get('/run-scan', (req, res) => {
     console.error("URL parameter missing in /run-scan request.");
     return res.status(400).send("Missing URL parameter");
   }
+
+  const newTask = {
+    type: "scan",
+    data: { url: tabUrl },
+    status: "processing",
+    createdAt: new Date()
+  }
+
+  const result = mongoose.connection.db.collection('tasks').insertOne(newTask);
+  console.log(result)
   
   // Execute your bash script. Ensure scan_site.sh is executable (chmod +x scan_site.sh)
   exec(`bash scan_site.sh "${tabUrl}" "${ruleFile}"`, (error, stdout, stderr) => {
@@ -51,6 +111,16 @@ app.post("/write-csv", (req, res) => {
     } catch (e) {
       latestResult = { error: "Failed to parse Python output" };
     }
+
+    const newTask = {
+      type: "stability",
+      data: { cpu_delta: latestResult.cpu_delta, memory_delta: latestResult.memory_delta, network_delta: latestResult.network_delta },
+      status: "processing",
+      createdAt: new Date()
+    }
+  
+    const result = mongoose.connection.db.collection('tasks').insertOne(newTask);
+    console.log(result)
 
     res.send("CSV and analysis complete");
   });

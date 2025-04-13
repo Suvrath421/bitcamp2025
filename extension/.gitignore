@@ -13,6 +13,7 @@ build/
 
 # Ignore system files
 .DS_Store
+stats.csv
 Thumbs.db
 
 # Ignore IDE specific files

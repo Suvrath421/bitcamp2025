@@ -153,59 +153,59 @@ function generateGaugeHTML(scoreValue, explanation) {
 }
 
 async function generateAISuggestion() {
-  try {
-    // Get the current active tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const url = new URL(tab.url).hostname; // Get just the domain
-
-    const prompt_num = `Based on the following data, assign a cybersecurity safety score from 0 to 100 (where 100 is completely safe and 0 is highly unsafe). Provide your score on one line.
-
-System Resource Anomalies:
-    ◦	CPU: ${cpu_anom}
-    ◦	Memory Usage: ${mem_anom}
-    ◦	Network Change in Bytes Sent: ${network_anom}
-Malicious Code Scan Result:
-    ◦	${flag}
-Domain Name:
-    ◦	${url}
-Provide output in this format:
-[0–100] (Only a number)`;
-
-    console.log(prompt_num);
-
-    const response_num = await chat(prompt_num);
-    console.log(response_num);
-
-    const prompt_expl = `Based on the following data,
-
-System Resource Anomalies:
-    ◦	CPU: ${cpu_anom}
-    ◦	Memory Usage: ${mem_anom}
-    ◦	Network Bytes Sent: ${network_anom}
-Malicious Code Scan Result:
-    ◦	${flag}
-Domain Name:
-    ◦	${url}
-
-Provide explanation in [One to two concise sentences] of why this website is safe or unsafe in cybersecurity`;
-
-console.log(prompt_num);
-
-    const response_expl = await chat(prompt_expl);
-    console.log(response_expl);
-
-    const numericScore = response_num;
-    const explanation = response_expl;
-
-    const resultEl = document.getElementById("aiSuggestionResult");
-    resultEl.innerHTML = generateGaugeHTML(numericScore, explanation);
-
-    document.getElementById("viewStatsBtn").addEventListener("click", showDashboardView);
-  } catch (error) {
-    console.error("Error fetching Gemini response:", error);
-    document.getElementById("aiSuggestionResult").innerHTML = "<p>Error: Unable to fetch recommendation.</p>";
+    try {
+      // Get the current active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const url = new URL(tab.url).hostname; // Get just the domain
+  
+      const prompt_num = `Based on the following data, assign a cybersecurity safety score from 0 to 100 (where 100 is completely safe and 0 is highly unsafe). Provide your score on one line.
+  
+  System Resource Anomalies:
+      ◦ CPU: ${cpu_anom}
+      ◦ Memory Usage: ${mem_anom}
+      ◦ Network Change in Bytes Sent: ${network_anom}
+  Malicious Code Scan Result:
+      ◦ ${flag}
+  Domain Name:
+      ◦ ${url}
+  Provide output in this format:
+  [0–100] (Only a number)`;
+  
+      console.log(prompt_num);
+  
+      const response_num = await chat(prompt_num);
+      console.log(response_num);
+  
+      const prompt_expl = `Based on the following data,
+  
+  System Resource Anomalies:
+      ◦ CPU: ${cpu_anom}
+      ◦ Memory Usage: ${mem_anom}
+      ◦ Network Bytes Sent: ${network_anom}
+  Malicious Code Scan Result:
+      ◦ ${flag}
+  Domain Name:
+      ◦ ${url}
+  
+  Provide explanation in [One to two concise sentences] of why this website is safe or unsafe in cybersecurity`;
+  
+      console.log(prompt_expl);
+  
+      const response_expl = await chat(prompt_expl);
+      console.log(response_expl);
+  
+      const numericScore = response_num;
+      const explanation = response_expl;
+  
+      const resultEl = document.getElementById("aiSuggestionResult");
+      resultEl.innerHTML = generateGaugeHTML(numericScore, explanation);
+  
+      document.getElementById("viewStatsBtn").addEventListener("click", showDashboardView);
+    } catch (error) {
+      console.error("Error fetching Gemini response:", error);
+      document.getElementById("aiSuggestionResult").innerHTML = "<p>Error: Unable to fetch recommendation.</p>";
+    }
   }
-}
 
 document.addEventListener("DOMContentLoaded", () => {
   const toScoreViewBtn = document.getElementById("toScoreViewBtn");
@@ -227,10 +227,10 @@ function showScoreView() {
   document.getElementById("dashboardView").style.display = "none";
   document.getElementById("scoreView").style.display = "block";
 
-  if (!aiScoreGenerated) {
-    generateAISuggestion();
-    aiScoreGenerated = true;
-  }
+  
+  // Always generate a new AI suggestion when switching to the Score view
+  aiScoreGenerated = false; // Reset the flag
+  generateAISuggestion();
 }
 
 function showDashboardView() {
