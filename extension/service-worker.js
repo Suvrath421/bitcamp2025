@@ -11,7 +11,7 @@
 //     }
 // }
 
-handleChat();
+// handleChat();
 
 // Manage the right-click menu
 
