@@ -67,7 +67,7 @@ function generateGaugeHTML(scoreValue, explanation) {
                  a 15.9155 15.9155 0 0 1 0 -31.831" />
         <text x="18" y="20.35" text-anchor="middle" class="score-text">${scoreValue}</text>
       </svg>
-      <p style="margin-top: 10px; font-size: 13px;">Risk Level: ${scoreValue >= 80 ? 'High' : scoreValue >= 50 ? 'Medium' : 'Low'}</p>
+      <p style="margin-top: 10px; font-size: 13px;">Safety Level: ${scoreValue >= 80 ? 'High' : scoreValue >= 50 ? 'Medium' : 'Low'}</p>
       <div style="margin: 15px 10px; font-size: 13px; line-height: 1.4; color: #ccc;">${explanation}</div>
       <button id="viewStatsBtn" style="margin-top: 10px; padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; font-size: 14px; cursor: pointer;">View Statistics</button>
     </div>
@@ -80,7 +80,7 @@ async function generateAISuggestion() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const url = new URL(tab.url).hostname; // Get just the domain
 
-    const prompt = `Based on the following data, assign a cybersecurity safety score from 0 to 100 (where 100 is completely safe and 0 is highly unsafe). Provide your score on one line, and give a one- to two-sentence explanation on a separate line.
+    const prompt_num = `Based on the following data, assign a cybersecurity safety score from 0 to 100 (where 100 is completely safe and 0 is highly unsafe). Provide your score on one line.
 
 System Resource Anomalies:
     ◦	CPU: ${cpu_anom}
@@ -92,13 +92,34 @@ Malicious Code Scan Result:
 Domain Name:
     ◦	${url}
 Provide output in this format:
-[0–100]
-Explanation: [One to two concise sentences]`;
+[0–100] (Only a number)`;
 
-    const response = await chat(prompt);
-    const match = response.match(/\b(\d{1,3})\b[\s\S]*?(Explanation:\s.+)/i);
-    const numericScore = match ? parseInt(match[1]) : 0;
-    const explanation = match ? match[2] : "Explanation: No explanation provided.";
+    console.log(prompt_num);
+
+    const response_num = await chat(prompt_num);
+    console.log(response_num);
+
+    const prompt_expl = `Based on the following data,
+
+System Resource Anomalies:
+    ◦	CPU: ${cpu_anom}
+    ◦	Memory Usage: ${mem_anom}
+    ◦	Network Bytes Sent: ${sent_anom}
+    ◦	Network Bytes Received: ${recv_anom}
+Malicious Code Scan Result:
+    ◦	${flag}
+Domain Name:
+    ◦	${url}
+
+Provide explanation in [One to two concise sentences] of why this website is safe or unsafe in cybersecurity`;
+
+console.log(prompt_num);
+
+    const response_expl = await chat(prompt_expl);
+    console.log(response_expl);
+
+    const numericScore = response_num;
+    const explanation = response_expl;
 
     const resultEl = document.getElementById("aiSuggestionResult");
     resultEl.innerHTML = generateGaugeHTML(numericScore, explanation);
@@ -111,7 +132,6 @@ Explanation: [One to two concise sentences]`;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const backToDashboardBtn = document.getElementById("backToDashboardBtn");
   const toScoreViewBtn = document.getElementById("toScoreViewBtn");
 
   // Attach event listeners
