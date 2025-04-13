@@ -4,11 +4,89 @@ import { chat } from '../gemini.js';
 let aiScoreGenerated = false;
 
 // Initialize variables with default values
-let cpu_anom = 0; // Default CPU anomaly value
-let mem_anom = 0; // Default memory anomaly value
-let sent_anom = 0; // Default network bytes sent anomaly value
-let recv_anom = 0; // Default network bytes received anomaly value
-let flag = "No malicious code detected"; // Default flag for malicious code scan
+let cpu_anom = "";
+let mem_anom = "";
+let network_anom = "";
+let flag = "No malicious code detected";
+
+// Function to update metrics from DOM elements
+function updateMetricsFromDOM() {
+  const cpuElement = document.getElementById("cpuUsage");
+  const memElement = document.getElementById("ramUsage");
+  const networkElement = document.getElementById("changeInNetworkActivity");
+  const flagElement = document.getElementById("maliciousIndicator");
+  
+  if (cpuElement && memElement && networkElement && flagElement) {
+    cpu_anom = cpuElement.textContent;
+    mem_anom = memElement.textContent;
+    network_anom = networkElement.textContent;
+    flag = flagElement.textContent || "No malicious code detected";
+    
+    console.log("Updated Metrics:", {
+      cpu_anom,
+      mem_anom,
+      network_anom,
+      flag,
+    });
+  }
+}
+
+// Initial attempt to get values
+updateMetricsFromDOM();
+
+// Hook into metric.js events if available
+document.addEventListener('DOMContentLoaded', () => {
+  // Option 1: Check if metric.js exposes an update event or callback
+  if (typeof window.metricJs !== 'undefined' && window.metricJs.onUpdate) {
+    window.metricJs.onUpdate(function(metrics) {
+      // If metric.js provides metrics directly
+      if (metrics) {
+        cpu_anom = metrics.cpu || cpu_anom;
+        mem_anom = metrics.memory || mem_anom;
+        network_anom = metrics.network || network_anom;
+        flag = metrics.flag || flag;
+        
+        console.log("Metrics Updated from event:", {
+          cpu_anom,
+          mem_anom,
+          network_anom,
+          flag,
+        });
+      } else {
+        // If not, try to fetch from DOM again
+        updateMetricsFromDOM();
+      }
+    });
+  } else {
+    // Option 2: Use a custom event if metric.js emits one
+    window.addEventListener('metricsUpdated', function(e) {
+      if (e.detail) {
+        cpu_anom = e.detail.cpu || cpu_anom;
+        mem_anom = e.detail.memory || mem_anom;
+        network_anom = e.detail.network || network_anom;
+        flag = e.detail.flag || flag;
+        
+        console.log("Metrics Updated from custom event:", {
+          cpu_anom,
+          mem_anom,
+          network_anom,
+          flag,
+        });
+      } else {
+        updateMetricsFromDOM();
+      }
+    });
+    
+    // Option 3: As a fallback, poll for updates
+    const metricsInterval = setInterval(updateMetricsFromDOM, 1000);
+    
+    // Clear interval when popup is closed to prevent memory leaks
+    window.addEventListener('unload', () => {
+      clearInterval(metricsInterval);
+    });
+  }
+});
+
 
 function mapScoreToValue(scoreText) {
   if (scoreText.includes("High")) return 90;
@@ -85,8 +163,7 @@ async function generateAISuggestion() {
 System Resource Anomalies:
     ◦	CPU: ${cpu_anom}
     ◦	Memory Usage: ${mem_anom}
-    ◦	Network Bytes Sent: ${sent_anom}
-    ◦	Network Bytes Received: ${recv_anom}
+    ◦	Network Change in Bytes Sent: ${network_anom}
 Malicious Code Scan Result:
     ◦	${flag}
 Domain Name:
@@ -104,8 +181,7 @@ Provide output in this format:
 System Resource Anomalies:
     ◦	CPU: ${cpu_anom}
     ◦	Memory Usage: ${mem_anom}
-    ◦	Network Bytes Sent: ${sent_anom}
-    ◦	Network Bytes Received: ${recv_anom}
+    ◦	Network Bytes Sent: ${network_anom}
 Malicious Code Scan Result:
     ◦	${flag}
 Domain Name:
