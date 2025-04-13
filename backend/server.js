@@ -39,7 +39,7 @@ app.post("/write-csv", (req, res) => {
   fs.writeFileSync(csvPath, "cpu_delta,memory_delta,network_delta\n" + req.body);
 
   // Execute the updated Python script for stability analysis.
-  exec("python analyze_zscore.py ./stats.csv", (err, stdout, stderr) => {
+  exec("python3 analyze_zscore.py ./stats.csv", (err, stdout, stderr) => {
     if (err) {
       console.error("Python Error:", stderr);
       latestResult = { error: stderr };

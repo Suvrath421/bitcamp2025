@@ -220,7 +220,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Set the initial view to the dashboard
-  showDashboardView();
+  showScoreView();
 });
 
 function showScoreView() {
