@@ -20,8 +20,7 @@
     "system.memory",
     "system.display",
     "debugger",
-    "contextMenus",
-    "http://localhost:3000/"
+    "contextMenus"
   ],
   "host_permissions": [
     "*://*/*"
