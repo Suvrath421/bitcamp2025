@@ -1,5 +1,3 @@
-import { method } from "detect-libc";
-
 /**
  * Analyze JSON data based on its type.
  * @param {Object} jsonData - The JSON data to analyze.
@@ -69,19 +67,27 @@ const dataSources = {
     job: "https://bitcamp2025-backend.onrender.com/job"//+<id>
 };
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ztest
 
 async function fetch_ztest(url) {
-    const response = await fetch(dataSources.ztest, { method: "POST", body: { url: url } } );
+    const myHeaders = new Headers();
+    myHeaders.append('Content-Type', 'application/json');
+    const raw = JSON.stringify({
+        "url": url
+    });
+    const response = await fetch(dataSources.scan, { 
+        method: "POST", 
+        headers: myHeaders,
+        body: raw, 
+    });
     const data = await response.json();
     if (!data.success) {
         // Failed (shouldn't happen ever really)
         return;
     }
     const id = data.requestId;
-    const url = `${dataSources[job]}/${id}`;
+    url = `${dataSources.job}/${id}`;
     while (true) {
         const r = await fetch(url);
         const d = await r.json();
@@ -92,17 +98,28 @@ async function fetch_ztest(url) {
         }
         await sleep(2500);
     }
+    console.log(res)
+    return res
 }
 
 async function fetch_analyze(url) {
-    const response = await fetch(dataSources.analyze, { method: "POST", body: { url: url } } );
+    const myHeaders = new Headers();
+    myHeaders.append('Content-Type', 'application/json');
+    const raw = JSON.stringify({
+        "url": url
+    });
+    const response = await fetch(dataSources.scan, { 
+        method: "POST", 
+        headers: myHeaders,
+        body: raw, 
+    });
     const data = await response.json();
     if (!data.success) {
         // Failed (shouldn't happen ever really)
         return;
     }
     const id = data.requestId;
-    const url = `${dataSources[job]}/${id}`;
+    url = `${dataSources.job}/${id}`;
     let res = null;
     while (true) {
         const r = await fetch(url);
@@ -115,29 +132,69 @@ async function fetch_analyze(url) {
         await sleep(2500);
     }
     console.log(res);
+    return res;
 }
 
 
-async function fetch_scan(url) {
-    const response = await fetch(dataSources.scan, { method: "POST", body: { url: url } } );
-    const data = await response.json();
-    if (!data.success) {
-        // Failed (shouldn't happen ever really)
-        return;
-    }
-    const id = data.requestId;
-    const url = `${dataSources[job]}/${id}`;
-    while (true) {
-        const r = await fetch(url);
+// Define a sleep function
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+  
+  export async function fetch_scan(url) {
+    try {
+      const myHeaders = new Headers();
+      myHeaders.append('Content-Type', 'application/json');
+      const raw = JSON.stringify({ url: url });
+      
+      // Send initial scan request
+      const response = await fetch(dataSources.scan, { 
+        method: "POST", 
+        headers: myHeaders,
+        body: raw, 
+      });
+      const data = await response.json();
+      
+      if (!data.success) {
+        console.error("Scan request failed:", data);
+        return "Scan request failed";
+      }
+      
+      const id = data.requestId;
+      let jobUrl = `${dataSources.job}/${id}`;
+      console.log("Job URL:", jobUrl);
+  
+      // Set a maximum iteration count to avoid infinite loops
+      const maxIterations = 100;
+      let iterations = 0;
+  
+      while (iterations < maxIterations) {
+        iterations++;
+        const r = await fetch(jobUrl);
         const d = await r.json();
+  
         if (d.job.status === 'processed') {
-            res = d[0];
-            // d[1] contains the status code
-            break;
+          let res = d.job.result[0];
+          console.log("Output from job result:", res.output);
+          await sleep(2500); // Pause before returning result
+          return res.output;
+        } else {
+          console.log(`Attempt ${iterations}: job status is "${d.job.status}", retrying...`);
+          await sleep(2500); // Wait before next poll
         }
-        await sleep(2500);
+      }
+  
+      console.error("Max iterations reached without processing");
+      return "Timeout: Max iterations reached without processing";
+    } catch (error) {
+      console.error("Error in fetch_scan:", error);
+      return "Error occurred in fetch_scan";
     }
-}
+  }
+  
+
+console.log("Result: " + fetch_scan("https://youtube.com"))
+
 
 
 /**
