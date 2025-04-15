@@ -3,8 +3,9 @@
 ### Cyber Sentinel
 
 **Raspberry Pi tool that detects suspicious websites using system profiling and static code analysis**, with features such as file download safety checks and continuous system monitoring.
-
+<div align="center">
  <img src="/extension/logo/cyber-security_128.png" />
+ </div>
 
 [Check out Cyber Sentinel on Devpost](https://devpost.com/software/cyber-sentinel?ref_content=user-portfolio&ref_feature=in_progress)
 
