@@ -4,11 +4,12 @@
 
 **Raspberry Pi tool that detects suspicious websites using system profiling and static code analysis**, with features such as file download safety checks and continuous system monitoring.
 <div align="center">
- <img src="/extension/logo/cyber-security_128.png" />
- <a href="https://devpost.com/software/cyber-sentinel?ref_content=user-portfolio&ref_feature=in_progress">
+  <img src="/extension/logo/cyber-security_128.png" />
+  <br>
+  <a href="https://devpost.com/software/cyber-sentinel?ref_content=user-portfolio&ref_feature=in_progress">
     Check out Cyber Sentinel on Devpost
   </a>
- </div>
+</div>
 
 
 
