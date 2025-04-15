@@ -1,5 +1,5 @@
 <div align="center">
-    <    <img src="/extension/logo/cyber-security_128.png" />
+    <img src="/extension/logo/cyber-security_128.png" />
     <h1>Chrome Extension v3 Starter</h1>
     <h3>A minimal template of a Chrome v3 addon</h3>
 </div>
