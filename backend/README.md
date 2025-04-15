@@ -1,6 +1,8 @@
 # Backend for Bitcamp 2025
 
 This repository contains the backend services for the Bitcamp 2025 project.
+ 
+ <img src="/extension/logo/cyber-security_128.png" />
 
 ## Overview
 
@@ -23,15 +25,7 @@ The backend serves as the core infrastructure for the Bitcamp 2025 project. It p
 
 ## Installation
 
-1. Clone the repository:
-    ```bash
-    git clone https://github.com/yourusername/bitcamp2025-backend.git
-    ```
-2. Navigate to the project directory:
-    ```bash
-    cd bitcamp2025-backend
-    ```
-3. Install dependencies:
+1. Install dependencies:
     ```bash
     npm install
     ```
